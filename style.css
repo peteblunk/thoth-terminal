@@ -1,0 +1,24 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #050505; /* Deep Obsidian */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#terminal-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* This is the magic for your Dell screen safety */
+#main-console {
+    filter: drop-shadow(0 0 10px #4DDCF4); /* The Cyan Glow */
+    transition: transform 0.3s ease;
+}
