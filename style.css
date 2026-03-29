@@ -22,3 +22,14 @@ body {
     filter: drop-shadow(0 0 10px #4DDCF4); /* The Cyan Glow */
     transition: transform 0.3s ease;
 }
+
+/* The Breathing Animation */
+@keyframes pulse {
+    0% { filter: drop-shadow(0 0 5px #4DDCF4); opacity: 0.8; }
+    50% { filter: drop-shadow(0 0 20px #4DDCF4); opacity: 1; }
+    100% { filter: drop-shadow(0 0 5px #4DDCF4); opacity: 0.8; }
+}
+
+#main-console {
+    animation: pulse 4s infinite ease-in-out;
+}
