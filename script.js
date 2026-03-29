@@ -1,27 +1,33 @@
-// Function to link an SVG artifact to a Windows command
-function activateArtifact(id, command) {
-    const obj = document.getElementById(id);
+// Fetch an SVG file, inject it inline into its container div, then wire up the click handler.
+// Inline SVGs inherit CSS `color` from the page, so currentColor in the SVG follows style.css.
+async function inlineSVG(containerId, command) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-    if (!obj) return; // Safety check
+    const src = container.dataset.src;
+    const response = await fetch(src);
+    const text = await response.text();
 
-    obj.addEventListener('load', function() {
-        const svgDoc = obj.contentDocument;
-        
-        // We target the root of the SVG so the whole drawing is clickable
-        const svgRoot = svgDoc.documentElement;
-        svgRoot.style.cursor = 'pointer';
+    // innerHTML lets the HTML parser handle Inkscape namespaces gracefully
+    container.innerHTML = text;
 
-        svgRoot.addEventListener('click', () => {
-            console.log(`Activating ${id}...`);
-            if (window.lively && window.lively.run) {
-                window.lively.run(command);
-            } else {
-                console.log("Lively not detected, but would have run: " + command);
-            }
-        });
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.style.cursor = 'pointer';
+
+    svg.addEventListener('click', () => {
+        console.log(`Activating ${containerId}...`);
+        if (window.lively && window.lively.run) {
+            window.lively.run(command);
+        } else {
+            console.log("Lively not detected, but would have run: " + command);
+        }
     });
 }
 
-// Now we "Assign" the powers to your specific files:
-activateArtifact('ka-button', 'powershell.exe');
-activateArtifact('thoth-button', 'code');
+// Assign the powers to your specific artifacts:
+inlineSVG('ka-button', 'powershell.exe');
+inlineSVG('thoth-button', 'code');

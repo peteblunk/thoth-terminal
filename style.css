@@ -15,13 +15,27 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 100px; /* This keeps the buttons from overlapping! */
 }
 
-/* This is the magic for your Dell screen safety */
-#main-console {
-    filter: drop-shadow(0 0 10px #4DDCF4); /* The Cyan Glow */
-    transition: transform 0.3s ease;
+/* Apply the glow and pulse to EVERY artifact */
+
+.artifact {
+    /* Change these numbers to find the "Sweet Spot" */
+    width: 150px;  /* Try 150px or 120px for a smaller look */
+    height: auto;  /* Keeps the proportions correct so they don't squish */
+    
+    transition: all 0.3s ease;
+    animation: pulse 4s infinite ease-in-out;
+    
+    /* Optional: Ensure they don't take up too much "Invisible" space */
+    display: block;
 }
+.artifact:hover {
+    transform: scale(1.1);
+    filter: brightness(1.5) drop-shadow(0 0 25px currentColor);
+}
+
 
 /* The Breathing Animation */
 @keyframes pulse {
@@ -29,7 +43,17 @@ body {
     50% { filter: drop-shadow(0 0 20px #4DDCF4); opacity: 1; }
     100% { filter: drop-shadow(0 0 5px #4DDCF4); opacity: 0.8; }
 }
-
-#main-console {
-    animation: pulse 4s infinite ease-in-out;
+/* Neon Green (Ka-Touche) */
+/* Neon Green Artifact */
+#ka-button {
+    color: #39FF14; /* This sets the "currentColor" for the SVG */
+    filter: drop-shadow(0 0 10px #39FF14);
 }
+
+/* Cyber Cyan Artifact */
+#thoth-button {
+    color: #1faafe; /* This sets the "currentColor" for the SVG */
+    filter: drop-shadow(0 0 10px #4DDCF4);
+}
+
+ 
