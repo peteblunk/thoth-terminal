@@ -18,16 +18,19 @@ async function inlineSVG(containerId, command) {
     svg.setAttribute('height', '100%');
     svg.style.cursor = 'pointer';
 
+    // Lively's web-wallpaper sandbox has no native process-launch API.
+    // launcher.js bridges that gap — run it once: node launcher.js
     svg.addEventListener('click', () => {
         console.log(`Activating ${containerId}...`);
-        if (window.lively && window.lively.run) {
-            window.lively.run(command);
-        } else {
-            console.log("Lively not detected, but would have run: " + command);
-        }
+        fetch(`http://127.0.0.1:7890/launch?cmd=${encodeURIComponent(command)}`)
+            .then(r => r.json())
+            .then(data => console.log('Launch result:', data))
+            .catch(() => console.warn('Launcher not running. Start it with: node launcher.js'));
     });
 }
 
 // Assign the powers to your specific artifacts:
-inlineSVG('ka-button', 'powershell.exe');
+inlineSVG('ka-button', 'powershell');
 inlineSVG('thoth-button', 'code');
+inlineSVG('duamutef-button', 'recycle-bin');
+inlineSVG('seshat-button', 'notepad');
