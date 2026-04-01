@@ -8,11 +8,13 @@
    version="1.1"
    id="svg1"
    xml:space="preserve"
-   sodipodi:docname="Seshat.svg"
+   sodipodi:docname="SeshatDetailedPaths.svg"
    inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   inkscape:export-filename="SeshatDetailedPaths.svg"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
      id="namedview1"
@@ -24,9 +26,9 @@
      inkscape:pagecheckerboard="1"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="0.66898703"
-     inkscape:cx="327.36061"
-     inkscape:cy="88.193041"
+     inkscape:zoom="7.5687242"
+     inkscape:cx="220.3806"
+     inkscape:cy="470.88517"
      inkscape:window-width="1280"
      inkscape:window-height="778"
      inkscape:window-x="-6"
@@ -34,7 +36,6 @@
      inkscape:window-maximized="1"
      inkscape:current-layer="svg1" /><defs
      id="defs1" /><g
-    
      id="layer2"
      style="fill:currentColor;stroke:none;stroke-opacity:1"
      transform="translate(-65.792969,-36.299479)"
@@ -97,8 +98,6 @@
        id="rect29"
        transform="matrix(0.86587907,-0.50025337,0.52076595,0.85369949,0,0)"
        inkscape:label="stylus" /><g
-       id="g1"
-       inkscape:label="hair" /><g
        id="g107"
        inkscape:label="body"><path
          style="baseline-shift:baseline;display:inline;overflow:visible;opacity:1;vector-effect:none;fill:currentColor;stroke:none;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;paint-order:stroke fill markers;enable-background:accumulate;stop-color:#000000;stop-opacity:1"

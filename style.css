@@ -88,7 +88,7 @@ body {
 /* Cyber Cyan — Thoth Chip */
 #thoth-button {
     color: #1faafe;
-    --thoth-frame:        3.2;  /* ← outer rect + pins              */
+    --thoth-frame:        4.2;  /* ← outer rect + pins              */
     --thoth-detail:       2.1;  /* ← stroke lines (circuits, head…) */
     --thoth-fill-opacity: 0.95; /* ← beak, crest, node fills        */
     animation: pulse-cyan 4s infinite ease-in-out;
@@ -169,6 +169,7 @@ body {
 /* Thoth Purple — Seshat */
 #seshat-button {
     color: #B915CC;
+    width: 185px;
     animation: pulse-purple 4s infinite ease-in-out;
 }
 @keyframes pulse-purple {
