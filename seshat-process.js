@@ -190,20 +190,8 @@ const BANGLE_STRIPES = [
   ['bangle-stripe-1', 'path412'],
 ];
 
-// dress-belt (g91) — two belt straps, traced left to right
-const BELT_PATHS = [
-  ['belt-strap-1', 'path44'],
-  ['belt-strap-2', 'path45'],
-];
-
-// dress-knot (g92) — knot body + details + trailing tails
-const KNOT_PATHS = [
-  ['knot-main',   'path175'],
-  ['knot-line-1', 'path176'],
-  ['knot-line-2', 'path177'],
-  ['knot-trail-1','path178'],
-  ['knot-trail-2','path180'],
-];
+// dress-belt — single combined belt+knot path, continuous trace
+const DRESS_BELT_PATH = 'path44';
 
 // Dress-decoration group (g106) — 39 individual star paths
 const DRESS_STARS = [
@@ -250,14 +238,16 @@ const PALM_BUDS = [
 
 // ---------------------------------------------------------------------------
 // Animation timing parameters — tweak freely
+// PASTE COPIED SETTINGS FROM THE CONTROL PANEL STARTING HERE ↓
+// (replace the const blocks below, then run: node seshat-process.js)
 // ---------------------------------------------------------------------------
 
 const HARP = {
   period:    12,    // full cycle length in seconds
-  stagger:   0.38,  // seconds between consecutive strands
+  stagger:   2.88,  // seconds between consecutive strands
   peakAt:    0.05,  // seconds after cycle start to reach peak brightness
   fadeBy:    0.80,  // seconds after cycle start to be mostly faded
-  doneBy:    1.20,  // seconds after cycle start to be fully back to normal
+  doneBy:    10.20,  // seconds after cycle start to be fully back to normal
   peakBrightness: 2.8,
   glowColor: '#e060ff',
   glowRadius: '4px',
@@ -303,15 +293,26 @@ const CLOCK = {
 
 // Trace-etch: golden light draws the belt straps then the knot
 const TRACE = {
-  period:     30,     // full repeat cycle (seconds)
-  traceFrac:  0.10,   // fraction of period used for the actual trace stroke
-  decayFrac:  0.067,  // fraction for fill fade-in / glow decay after trace
-  doneFrac:   0.20,   // fraction at which element is fully back to normal
-  stagger:    1.5,    // seconds between each path's start
-  glowColor:  '#962463',
-  glowColor2: '#881784',
-  strokeW:    '0.8px',
+  period:    1000,     // full repeat cycle (seconds) — silence fills the rest
+  traceDur:   20,     // seconds spent actively drawing the stroke
+  decayDur:   10,     // seconds for fill fade-in / glow decay after trace
+  doneDur:   36,     // seconds at which element is fully back to normal (must be > traceDur+decayDur)
+  glowColor:  '#e24d9f',
+  glowColor2: '#f378ef',
+  strokeW:    '0.3px',
 };
+
+// Seshat outline: slow full-body trace — majestic single continuous path
+const OUTLINE = {
+  period:    450,     // full cycle — silence fills the rest
+  traceDur:  30,     // seconds spent actively drawing the stroke
+  decayDur:   14,     // seconds for fill fade-in / glow decay after trace
+  doneDur:   45,     // seconds at which element is fully back to normal
+  glowColor:  '#00ffee',   // cyan — distinct from belt's magenta
+  glowColor2: '#0088aa',   // deep cyan bloom
+  strokeW:    '0.3px',
+};
+const OUTLINE_PATH = 'path14';
 
 // Star sparkle: varied periods create organic non-synchronized twinkling
 const STAR = {
@@ -324,12 +325,42 @@ const STAR = {
   glowColor2: '#ffd700',   // gold outer halo
 };
 
+// Eye of Ra glow — rare slow cycle: lids warm up, then green light bursts from the socket
+// g77 = eye group, path12 = lower-eye-lid, path13 = upper-eye-trail
+const EYE = {
+  period:          35,    // full cycle in seconds — infrequent and dramatic
+  lidDelay:         0.0,  // lower lid starts immediately
+  trailDelay:       1.2,  // upper-eye-trail fires just after lower lid
+  socketDelay:      5.5,  // socket burst starts once lids are fully warm
+  lidBrightness:    3.2,  // peak brightness for the eyelid warmup
+  socketBrightness: 6.0,  // peak brightness for the Ra green burst
+  lidGlow:        '#88ff44',   // warm lime when lids light up
+  socketGlow:     '#00ff44',   // bright green burst
+  socketBloom:    '#00aa22',   // outer bloom halo
+};
+
 // ---------------------------------------------------------------------------
 // CSS generator
 // ---------------------------------------------------------------------------
 
 function pct(seconds, period) {
   return (seconds / period * 100).toFixed(3) + '%';
+}
+
+// Prefix all bare '#id {' selectors with '#seshat-button' so Seshat's inline CSS
+// doesn't bleed onto Ka/Thoth SVGs (which share the same generic path IDs).
+// Uses the stable HTML wrapper div, not the inlined SVG root ID.
+// Safe: @keyframes blocks use % selectors; CSS values use #hex never followed by '{'.
+function scopeCSS(css) {
+  return css.replace(/#([a-zA-Z][a-zA-Z0-9_-]*)\s*\{/g, '#seshat-button #$1 {');
+}
+
+// Returns a keyframe stop within the cooling region (decayEnd → coolEnd).
+// frac: 0 = hottest, 1 = fully cooled.
+function coolPct(cfg, frac) {
+  const de = cfg.traceDur + cfg.decayDur;
+  const ce = Math.max(cfg.doneDur, de + 0.5);
+  return pct(de + frac * (ce - de), cfg.period);
 }
 
 function strandCSS(strands, keyframeName, timing) {
@@ -365,7 +396,7 @@ function traceCSSRules(paths, timing, indexOffset = 0) {
 function generateCSS() {
   const H = HARP, B = BANGLE, U = UPPER, M = MISC, C = CLOCK;
 
-  return `
+  return scopeCSS(`
   /* ================================================================
      SESHAT ANIMATION — generated by seshat-process.js
      ================================================================
@@ -453,11 +484,31 @@ ${starSparkleCSS(DRESS_STARS, 'star-sparkle', STAR, 0)}
   /* ---- Upper body stars: individual sparkle (7 paths) ---- */
 ${starSparkleCSS(UPPER_STARS, 'star-sparkle', STAR, DRESS_STARS.length)}
 
-  /* ---- Belt + knot: pathLength-normalised stroke-dashoffset trace ---- */
-  /* base stroke-width on traced paths so the etching shows */
-  ${[...BELT_PATHS, ...KNOT_PATHS].map(([,id]) => `#${id}`).join(', ')} {
-    stroke-width: ${TRACE.strokeW};
+  /* ---- Eye of Ra — lids warm then socket bursts with green light ---- */
+  @keyframes eye-lid-warm {
+    0%, 100% { filter: none; }
+    10%      { filter: brightness(${(EYE.lidBrightness * 0.7).toFixed(1)}) drop-shadow(0 0 2px ${EYE.lidGlow}); }
+    22%      { filter: brightness(${EYE.lidBrightness}) drop-shadow(0 0 3px ${EYE.lidGlow}); }
+    38%      { filter: brightness(${(EYE.lidBrightness * 0.5).toFixed(1)}); }
+    48%      { filter: none; }
   }
+
+  @keyframes eye-socket-glow {
+    0%, 85%, 100% { opacity: 0; filter: none; }
+    15%      { opacity: 0.4; filter: brightness(${(EYE.socketBrightness * 0.5).toFixed(1)}) drop-shadow(0 0 5px ${EYE.socketGlow}); }
+    32%      { opacity: 1;   filter: brightness(${EYE.socketBrightness}) drop-shadow(0 0 10px ${EYE.socketGlow}) drop-shadow(0 0 25px ${EYE.socketBloom}); }
+    50%      { opacity: 0.5; filter: brightness(${(EYE.socketBrightness * 0.4).toFixed(1)}) drop-shadow(0 0 5px ${EYE.socketGlow}); }
+    65%      { opacity: 0.15; filter: brightness(1.3); }
+  }
+
+  /* lower-eye-lid   */ #path12    { animation: eye-lid-warm    ${EYE.period}s ${EYE.lidDelay}s    infinite ease-in-out; }
+  /* upper-eye-trail */ #path13    { animation: eye-lid-warm    ${EYE.period}s ${EYE.trailDelay}s  infinite ease-in-out; }
+  /* eye interior     */ #eye-interior { animation: eye-socket-glow ${EYE.period}s ${EYE.socketDelay}s infinite ease-in-out; }
+
+  /* ---- Dress belt + outline: pathLength-normalised stroke-dashoffset trace ---- */
+  /* base stroke-width on traced paths so the etching shows */
+  #${DRESS_BELT_PATH} { stroke-width: ${TRACE.strokeW}; }
+  #${OUTLINE_PATH}    { stroke-width: ${OUTLINE.strokeW}; }
 
   @keyframes trace-etch {
     0% {
@@ -467,32 +518,81 @@ ${starSparkleCSS(UPPER_STARS, 'star-sparkle', STAR, DRESS_STARS.length)}
       stroke-dashoffset: 1;
       filter: drop-shadow(0 0 1px ${TRACE.glowColor});
     }
-    ${(TRACE.traceFrac * 100).toFixed(1)}% {
+    ${pct(TRACE.traceDur, TRACE.period)} {
       fill: transparent;
       stroke: ${TRACE.glowColor};
       stroke-dasharray: 1;
       stroke-dashoffset: 0;
       filter: drop-shadow(0 0 4px ${TRACE.glowColor}) drop-shadow(0 0 8px ${TRACE.glowColor2});
     }
-    ${((TRACE.traceFrac + TRACE.decayFrac) * 100).toFixed(1)}% {
+    ${pct(TRACE.traceDur + TRACE.decayDur, TRACE.period)} {
       fill: currentColor;
       stroke: ${TRACE.glowColor};
       stroke-dasharray: 1;
       stroke-dashoffset: 0;
       filter: brightness(1.7) drop-shadow(0 0 2px ${TRACE.glowColor});
     }
-    ${(TRACE.doneFrac * 100).toFixed(1)}%, 100% {
+    ${coolPct(TRACE, 0.30)} {
       fill: currentColor;
       stroke: none;
-      filter: none;
+      filter: brightness(1.35) drop-shadow(0 0 1px ${TRACE.glowColor});
+    }
+    ${coolPct(TRACE, 0.65)} {
+      fill: currentColor;
+      stroke: none;
+      filter: brightness(1.1);
+    }
+    ${coolPct(TRACE, 1)}, 100% {
+      fill: currentColor;
+      stroke: none;
+      filter: brightness(1);
     }
   }
 
-  /* ---- Belt straps: trace left to right ---- */
-${traceCSSRules(BELT_PATHS, TRACE)}
+  /* ---- Dress belt: single continuous trace ---- */
+  /* dress-belt */ #${DRESS_BELT_PATH} { animation: trace-etch ${TRACE.period}s 0s infinite linear; }
 
-  /* ---- Knot: trace body then details then tails ---- */
-${traceCSSRules(KNOT_PATHS, TRACE, BELT_PATHS.length)}
+  /* ---- Seshat outline: full-body trace ---- */
+  @keyframes outline-trace {
+    0% {
+      fill: transparent;
+      stroke: ${OUTLINE.glowColor};
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      filter: drop-shadow(0 0 1px ${OUTLINE.glowColor});
+    }
+    ${pct(OUTLINE.traceDur, OUTLINE.period)} {
+      fill: transparent;
+      stroke: ${OUTLINE.glowColor};
+      stroke-dasharray: 1;
+      stroke-dashoffset: 0;
+      filter: drop-shadow(0 0 3px ${OUTLINE.glowColor}) drop-shadow(0 0 8px ${OUTLINE.glowColor2});
+    }
+    ${pct(OUTLINE.traceDur + OUTLINE.decayDur, OUTLINE.period)} {
+      fill: currentColor;
+      stroke: ${OUTLINE.glowColor};
+      stroke-dasharray: 1;
+      stroke-dashoffset: 0;
+      filter: brightness(1.5) drop-shadow(0 0 2px ${OUTLINE.glowColor});
+    }
+    ${coolPct(OUTLINE, 0.30)} {
+      fill: currentColor;
+      stroke: none;
+      filter: brightness(1.2) drop-shadow(0 0 1px ${OUTLINE.glowColor});
+    }
+    ${coolPct(OUTLINE, 0.65)} {
+      fill: currentColor;
+      stroke: none;
+      filter: brightness(1.07);
+    }
+    ${coolPct(OUTLINE, 1)}, 100% {
+      fill: currentColor;
+      stroke: none;
+      filter: brightness(1);
+    }
+  }
+
+  /* seshat-outline */ #${OUTLINE_PATH} { animation: outline-trace ${OUTLINE.period}s 0s infinite linear; }
 
   /* ---- Palm-rib chronometer: runtime bud states (set by JS clock) ---- */
 
@@ -515,7 +615,7 @@ ${traceCSSRules(KNOT_PATHS, TRACE, BELT_PATHS.length)}
     55%  { filter: brightness(${C.dimBrightness}) drop-shadow(0 0 2px ${C.dimColor}); }
     100% { filter: none; }
   }
-`;
+`);
 }
 
 // ---------------------------------------------------------------------------
@@ -525,11 +625,11 @@ ${traceCSSRules(KNOT_PATHS, TRACE, BELT_PATHS.length)}
 function generateControlPanel(svgContent) {
 
   // Serialize all timing data as JSON for embedding
-  const paramsJSON = JSON.stringify({ HARP, BANGLE, UPPER, STAR, TRACE, MISC, CLOCK }, null, 2);
+  const paramsJSON = JSON.stringify({ HARP, BANGLE, UPPER, STAR, TRACE, OUTLINE, MISC, CLOCK, EYE }, null, 2);
   const mapsJSON   = JSON.stringify({
     LONG_HAIR, SHORT_HAIR, UPPER_HAIR,
     BANGLE_STRANDS, BANGLE_STRIPES,
-    BELT_PATHS, KNOT_PATHS,
+    DRESS_BELT_PATH, OUTLINE_PATH,
     DRESS_STARS, UPPER_STARS,
   });
 
@@ -554,10 +654,10 @@ function setParam(gKey, cKey, val) {
 
 // ---- CSS generator (mirrors seshat-process.js) ------------------------------
 function generateCSS(p) {
-  var H = p.HARP, B = p.BANGLE, U = p.UPPER, S = p.STAR, T = p.TRACE, M = p.MISC, C = p.CLOCK;
+  var H = p.HARP, B = p.BANGLE, U = p.UPPER, S = p.STAR, T = p.TRACE, O = p.OUTLINE, M = p.MISC, C = p.CLOCK, E = p.EYE;
   var L = maps.LONG_HAIR, SH = maps.SHORT_HAIR, UH = maps.UPPER_HAIR;
   var BS = maps.BANGLE_STRANDS, BP = maps.BANGLE_STRIPES;
-  var BELT = maps.BELT_PATHS, KNOT = maps.KNOT_PATHS;
+  var DBELT = maps.DRESS_BELT_PATH, OPATH = maps.OUTLINE_PATH;
   var DS = maps.DRESS_STARS, US = maps.UPPER_STARS;
   var css = '';
 
@@ -633,22 +733,56 @@ function generateCSS(p) {
     css += '#' + id + ' { animation: star-sparkle ' + period + 's ' + delay + 's infinite; }\\n';
   });
 
-  var traceIds = BELT.concat(KNOT).map(function(item) { return '#' + item[1]; }).join(', ');
+  css += '\\n@keyframes eye-lid-warm {\\n';
+  css += '  0%, 100% { filter: none; }\\n';
+  css += '  10%      { filter: brightness(' + (E.lidBrightness * 0.7).toFixed(1) + ') drop-shadow(0 0 2px ' + E.lidGlow + '); }\\n';
+  css += '  22%      { filter: brightness(' + E.lidBrightness + ') drop-shadow(0 0 3px ' + E.lidGlow + '); }\\n';
+  css += '  38%      { filter: brightness(' + (E.lidBrightness * 0.5).toFixed(1) + '); }\\n';
+  css += '  48%      { filter: none; }\\n';
+  css += '}\\n\\n';
+  css += '@keyframes eye-socket-glow {\\n';
+  css += '  0%, 85%, 100% { opacity: 0; filter: none; }\\n';
+  css += '  15%      { opacity: 0.4; filter: brightness(' + (E.socketBrightness * 0.5).toFixed(1) + ') drop-shadow(0 0 5px ' + E.socketGlow + '); }\\n';
+  css += '  32%      { opacity: 1;   filter: brightness(' + E.socketBrightness + ') drop-shadow(0 0 10px ' + E.socketGlow + ') drop-shadow(0 0 25px ' + E.socketBloom + '); }\\n';
+  css += '  50%      { opacity: 0.5; filter: brightness(' + (E.socketBrightness * 0.4).toFixed(1) + ') drop-shadow(0 0 5px ' + E.socketGlow + '); }\\n';
+  css += '  65%      { opacity: 0.15; filter: brightness(1.3); }\\n';
+  css += '}\\n\\n';
+  css += '#path12   { animation: eye-lid-warm    ' + E.period + 's ' + E.lidDelay    + 's infinite ease-in-out; }\\n';
+  css += '#path13   { animation: eye-lid-warm    ' + E.period + 's ' + E.trailDelay  + 's infinite ease-in-out; }\\n';
+  css += '#eye-interior { animation: eye-socket-glow ' + E.period + 's ' + E.socketDelay + 's infinite ease-in-out; }\\n\\n';
+
+  var traceIds = '#' + DBELT;
   css += traceIds + ' { stroke-width: ' + T.strokeW + '; }\\n\\n';
 
   css += '@keyframes trace-etch {\\n';
   css += '  0% { fill: transparent; stroke: ' + T.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 1; filter: drop-shadow(0 0 1px ' + T.glowColor + '); }\\n';
-  css += '  ' + (T.traceFrac * 100).toFixed(1) + '% { fill: transparent; stroke: ' + T.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 4px ' + T.glowColor + ') drop-shadow(0 0 8px ' + T.glowColor2 + '); }\\n';
-  css += '  ' + ((T.traceFrac + T.decayFrac) * 100).toFixed(1) + '% { fill: currentColor; stroke: ' + T.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: brightness(1.7) drop-shadow(0 0 2px ' + T.glowColor + '); }\\n';
-  css += '  ' + (T.doneFrac * 100).toFixed(1) + '%, 100% { fill: currentColor; stroke: none; filter: none; }\\n';
+  css += '  ' + pct(T.traceDur, T.period) + ' { fill: transparent; stroke: ' + T.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 4px ' + T.glowColor + ') drop-shadow(0 0 8px ' + T.glowColor2 + '); }\\n';
+  css += '  ' + pct(T.traceDur + T.decayDur, T.period) + ' { fill: currentColor; stroke: ' + T.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: brightness(1.7) drop-shadow(0 0 2px ' + T.glowColor + '); }\\n';
+  (function() {
+    var Tde = T.traceDur + T.decayDur, Tce = Math.max(T.doneDur, Tde + 0.5), Tsp = Tce - Tde;
+    css += '  ' + pct(Tde + Tsp * 0.30, T.period) + ' { fill: currentColor; stroke: none; filter: brightness(1.35) drop-shadow(0 0 1px ' + T.glowColor + '); }\\n';
+    css += '  ' + pct(Tde + Tsp * 0.65, T.period) + ' { fill: currentColor; stroke: none; filter: brightness(1.1); }\\n';
+    css += '  ' + pct(Tce, T.period)               + ', 100% { fill: currentColor; stroke: none; filter: brightness(1); }\\n';
+  })();
   css += '}\\n\\n';
 
-  BELT.forEach(function(item, i) {
-    css += '#' + item[1] + ' { animation: trace-etch ' + T.period + 's ' + (i * T.stagger).toFixed(2) + 's infinite ease-in-out; }\\n';
-  });
-  KNOT.forEach(function(item, i) {
-    css += '#' + item[1] + ' { animation: trace-etch ' + T.period + 's ' + ((i + BELT.length) * T.stagger).toFixed(2) + 's infinite ease-in-out; }\\n';
-  });
+  css += '#' + DBELT + ' { animation: trace-etch ' + T.period + 's 0s infinite linear; }\\n\\n';
+
+  css += '#' + OPATH + ' { stroke-width: ' + O.strokeW + '; }\\n\\n';
+
+  css += '@keyframes outline-trace {\\n';
+  css += '  0% { fill: transparent; stroke: ' + O.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 1; filter: drop-shadow(0 0 1px ' + O.glowColor + '); }\\n';
+  css += '  ' + pct(O.traceDur, O.period) + ' { fill: transparent; stroke: ' + O.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 3px ' + O.glowColor + ') drop-shadow(0 0 8px ' + O.glowColor2 + '); }\\n';
+  css += '  ' + pct(O.traceDur + O.decayDur, O.period) + ' { fill: currentColor; stroke: ' + O.glowColor + '; stroke-dasharray: 1; stroke-dashoffset: 0; filter: brightness(1.5) drop-shadow(0 0 2px ' + O.glowColor + '); }\\n';
+  (function() {
+    var Ode = O.traceDur + O.decayDur, Oce = Math.max(O.doneDur, Ode + 0.5), Osp = Oce - Ode;
+    css += '  ' + pct(Ode + Osp * 0.30, O.period) + ' { fill: currentColor; stroke: none; filter: brightness(1.2) drop-shadow(0 0 1px ' + O.glowColor + '); }\\n';
+    css += '  ' + pct(Ode + Osp * 0.65, O.period) + ' { fill: currentColor; stroke: none; filter: brightness(1.07); }\\n';
+    css += '  ' + pct(Oce, O.period)               + ', 100% { fill: currentColor; stroke: none; filter: brightness(1); }\\n';
+  })();
+  css += '}\\n\\n';
+
+  css += '#' + OPATH + ' { animation: outline-trace ' + O.period + 's 0s infinite linear; }\\n\\n';
 
   css += '.seshat-bud-on  { color: ' + C.onColor  + '; filter: brightness(' + C.onBrightness  + ') drop-shadow(0 0 3px ' + C.onColor  + ') drop-shadow(0 0 8px ' + C.dimColor + '); }\\n';
   css += '.seshat-bud-dim { color: ' + C.dimColor + '; filter: brightness(' + C.dimBrightness + ') drop-shadow(0 0 2px ' + C.dimColor + '); }\\n';
@@ -670,7 +804,7 @@ function update() {
 
 // ---- copy-to-clipboard ------------------------------------------------------
 document.getElementById('copy-btn').addEventListener('click', function() {
-  var lines = ['HARP','BANGLE','UPPER','STAR','TRACE','MISC','CLOCK'].map(function(k) {
+  var lines = ['HARP','BANGLE','UPPER','STAR','TRACE','OUTLINE','MISC','CLOCK','EYE'].map(function(k) {
     return 'const ' + k + ' = ' + JSON.stringify(params[k], null, 2) + ';';
   });
   navigator.clipboard.writeText(lines.join('\\n\\n')).then(function() {
@@ -720,15 +854,23 @@ var GROUPS = [
     { key:'glowColor1',     label:'Inner glow',       type:'color' },
     { key:'glowColor2',     label:'Outer glow',       type:'color' },
   ]},
-  { key: 'TRACE', label: '\\u25b7 Belt + Knot \u2014 Trace Etch', controls: [
-    { key:'period',         label:'Cycle (s)',        min:5,    max:120, step:1    },
-    { key:'stagger',        label:'Stagger (s)',      min:0.1,  max:10,  step:0.1  },
-    { key:'traceFrac',      label:'Trace fraction',   min:0.01, max:0.3, step:0.005 },
-    { key:'decayFrac',      label:'Decay fraction',   min:0.01, max:0.2, step:0.005 },
-    { key:'doneFrac',       label:'Done fraction',    min:0.05, max:0.5, step:0.01  },
+  { key: 'TRACE', label: '\\u25b7 Dress Belt \u2014 Trace Etch', controls: [
+    { key:'period',         label:'Cycle (s)',         min:5,    max:300, step:1    },
+    { key:'traceDur',       label:'Trace dur (s)',     min:1,    max:60,  step:0.5  },
+    { key:'decayDur',       label:'Decay dur (s)',     min:0.5,  max:30,  step:0.5  },
+    { key:'doneDur',        label:'Done at (s)',       min:1,    max:120, step:1    },
     { key:'glowColor',      label:'Trace color',      type:'color' },
     { key:'glowColor2',     label:'Bloom color',      type:'color' },
     { key:'strokeW',        label:'Stroke width',     min:0.1,  max:5,   step:0.1, unit:'px' },
+  ]},
+  { key: 'OUTLINE', label: '\\u25b7 Seshat Outline \u2014 Full Trace', controls: [
+    { key:'period',         label:'Cycle (s)',         min:30,   max:600, step:5    },
+    { key:'traceDur',       label:'Trace dur (s)',     min:5,    max:120, step:1    },
+    { key:'decayDur',       label:'Decay dur (s)',     min:1,    max:60,  step:1    },
+    { key:'doneDur',        label:'Done at (s)',       min:10,   max:300, step:5    },
+    { key:'glowColor',      label:'Trace color',      type:'color' },
+    { key:'glowColor2',     label:'Bloom color',      type:'color' },
+    { key:'strokeW',        label:'Stroke width',     min:0.1,  max:3,   step:0.1, unit:'px' },
   ]},
   { key: 'MISC', label: '\\u25c6 Necklace + Rosette', controls: [
     { key:'gemPeriod',          label:'Gem cycle (s)',      min:2,  max:30, step:0.5 },
@@ -747,11 +889,127 @@ var GROUPS = [
     { key:'dimBrightness',    label:'Half-hr bright',  min:1, max:4,  step:0.05 },
     { key:'rippleBrightness', label:'Ripple peak',     min:1, max:8,  step:0.1 },
   ]},
+  { key: 'EYE', label: '\\u25ce Eye of Ra \u2014 Green Flash', controls: [
+    { key:'period',          label:'Period (s)',       min:5, max:120, step:1   },
+    { key:'lidDelay',        label:'Lid delay (s)',    min:0, max:10,  step:0.1 },
+    { key:'trailDelay',      label:'Trail delay (s)', min:0, max:10,  step:0.1 },
+    { key:'socketDelay',     label:'Socket delay (s)',min:0, max:20,  step:0.5 },
+    { key:'lidBrightness',   label:'Lid brightness',  min:1, max:8,   step:0.1 },
+    { key:'socketBrightness',label:'Socket peak',     min:1, max:12,  step:0.5 },
+    { key:'lidGlow',         label:'Lid glow',        type:'color' },
+    { key:'socketGlow',      label:'Socket glow',     type:'color' },
+    { key:'socketBloom',     label:'Socket bloom',    type:'color' },
+  ]},
 ];
+
+// ---- control descriptions ---------------------------------------------------
+var DESCS = {
+  HARP: {
+    _group:         'Each strand glows and dims as a wave sweeps left to right, like harp strings being plucked one after another.',
+    period:         'Full animation cycle length. All timing values below are offsets within this window.',
+    stagger:        'Delay between each strand firing. Creates the cascading wave sweep. Larger = slower wave.',
+    peakAt:         'Time (seconds) into the cycle when each strand reaches its maximum brightness.',
+    fadeBy:         'Time when the glow has largely faded back toward normal.',
+    doneBy:         'Time when the strand is fully at rest. Silence fills the remainder of the cycle.',
+    peakBrightness: 'Intensity multiplier at peak. 1 = no change; 4 = four times brighter.',
+    glowColor:      'Color of the light bloom surrounding each strand.',
+    glowRadius:     'Radius of the bloom halo in pixels.',
+  },
+  BANGLE: {
+    _group:         'The bangle strands mimic the hair pluck on a shorter, tighter scale.',
+    period:         'Full cycle length for the bangle sweep.',
+    stagger:        'Delay between each bangle strand. Creates the mini left-to-right wave.',
+    peakAt:         'Time of maximum brightness within the cycle.',
+    fadeBy:         'Time when the glow has mostly faded.',
+    doneBy:         'Time when the strand is fully at rest.',
+    peakBrightness: 'Intensity multiplier at peak. 1 = no change.',
+    glowColor:      'Color of the bangle bloom.',
+    glowRadius:     'Bloom halo radius in pixels.',
+  },
+  UPPER: {
+    _group:         'Upper hair strands breathe with a slow ambient shimmer. No sweep — just a gentle continuous pulse.',
+    period:         'Time for one full shimmer breath (dim to bright and back).',
+    stagger:        'Offset between adjacent strands so they stay slightly out of phase.',
+    peakBrightness: 'Peak brightness multiplier at the top of each breath.',
+  },
+  STAR: {
+    _group:         'Each star sparkles at its own pace. Six different cycle lengths ensure they never all flash at the same time.',
+    'periods[0]':   'Cycle length A — shared across a subset of stars. Use different prime-ish values to keep them organic and unsynchronized.',
+    'periods[1]':   'Cycle length B.',
+    'periods[2]':   'Cycle length C.',
+    'periods[3]':   'Cycle length D.',
+    'periods[4]':   'Cycle length E.',
+    'periods[5]':   'Cycle length F.',
+    delayStep:      'Offset added per star index. Irrational values scatter each star into its own phase.',
+    delaySpread:    'Total window (s) over which start delays are spread. Larger = more staggered before looping.',
+    peakBrightness: 'How bright each star flashes at its peak.',
+    glowColor1:     'White-hot center color of each sparkle.',
+    glowColor2:     'Cooler outer halo surrounding each flash.',
+  },
+  TRACE: {
+    _group:         'A glowing stroke etches along the belt path once per cycle. Trace duration and cycle length are fully independent.',
+    period:         'Full cycle length (s). The trace fires once then silence fills the remainder — extend this for a long pause between traces.',
+    traceDur:       'How many seconds the stroke spends actively drawing. Completely independent of the cycle — make it slow without changing how often it fires.',
+    decayDur:       'Seconds spent fading after the trace completes: glow dims and the fill solidifies. Short = snappy, long = lingering.',
+    doneDur:        'Seconds into the cycle when the animation is fully finished. Must be greater than traceDur + decayDur. Silence fills the rest of the cycle.',
+    glowColor:      'Color of the glowing stroke edge as it etches.',
+    glowColor2:     'Outer bloom pulsing behind the stroke at full draw.',
+    strokeW:        'Visible width of the stroke edge during tracing.',
+  },
+  OUTLINE: {
+    _group:         'A slow cyan trace draws the entire body outline once per cycle. Trace duration and cycle length are fully independent.',
+    period:         'Full cycle length (s). Long periods keep this event rare and dramatic.',
+    traceDur:       'How many seconds the stroke spends actively drawing the outline. Make this slow — the outline is a long complex path.',
+    decayDur:       'Seconds spent fading after the trace completes. Glow dissolves and the fill solidifies.',
+    doneDur:        'Seconds into the cycle when the animation is fully finished. Must be greater than traceDur + decayDur. Silence fills the rest.',
+    glowColor:      'Color of the glowing stroke edge as it traces the outline.',
+    glowColor2:     'Outer bloom radiating from the stroke at maximum draw.',
+    strokeW:        'Visible width of the stroke edge during tracing.',
+  },
+  MISC: {
+    _group:         'Periodic sparkle effects for the necklace gem stone and the flower rosette headdress.',
+    gemPeriod:          'How often the necklace gem flashes.',
+    gemDelay:           'Initial wait before the first gem flash fires.',
+    gemBrightness:      'Peak brightness multiplier during the flash.',
+    gemGlow:            'Color of the necklace gem flash.',
+    rosettePeriod:      'How often the headdress rosette sparkles.',
+    rosetteDelay:       'Initial offset before the rosette begins cycling.',
+    rosetteBrightness:  'Peak brightness of the headdress sparkle.',
+    rosetteGlow:        'Color of the rosette sparkle.',
+  },
+  CLOCK: {
+    _group:         'The palm rib stalk acts as a clock hand. One rib glows for the current hour, another for the half-hour mark.',
+    onColor:          'Color of the currently active (current-hour) rib.',
+    onBrightness:     'Glow intensity of the active hour marker.',
+    dimColor:         'Color of the half-hour marker rib.',
+    dimBrightness:    'Glow intensity of the half-hour marker.',
+    rippleBrightness: 'Peak brightness of the ripple pulse that fires when the hour changes.',
+  },
+  EYE: {
+    _group:         'Rare dramatic event: eyelids warm up first, then a green burst erupts from the socket. Keep the period long for impact.',
+    period:          'Full cycle. Long periods make the eye event rare and dramatic.',
+    lidDelay:        'Offset before the lower eyelid begins to warm up.',
+    trailDelay:      'When the upper-eye-trail follows the lower lid. A slight offset adds depth.',
+    socketDelay:     'When the green burst fires. Set this after the lids are fully lit.',
+    lidBrightness:   'How brightly the eyelids illuminate as they heat up before the burst.',
+    socketBrightness:'Peak intensity of the eye socket burst.',
+    lidGlow:         'Warm tint of the lid illumination during heat-up.',
+    socketGlow:      'Bright inner color of the Ra socket burst.',
+    socketBloom:     'Outer halo that radiates from the socket at full intensity.',
+  },
+};
+
+// Augment GROUPS with descriptions at runtime
+GROUPS.forEach(function(g) {
+  var d = DESCS[g.key];
+  if (!d) return;
+  if (d._group) g.desc = d._group;
+  g.controls.forEach(function(c) { if (d[c.key]) c.desc = d[c.key]; });
+});
 
 // ---- build UI ---------------------------------------------------------------
 function buildUI() {
-  var panel   = document.getElementById('panel');
+  var scroll  = document.getElementById('panel-scroll');
   var copyBtn = document.getElementById('copy-btn');
 
   GROUPS.forEach(function(group) {
@@ -764,6 +1022,13 @@ function buildUI() {
 
     var body = document.createElement('div');
     body.className = 'group-body';
+
+    if (group.desc) {
+      var gdesc = document.createElement('p');
+      gdesc.className = 'group-desc';
+      gdesc.textContent = group.desc;
+      body.appendChild(gdesc);
+    }
 
     header.addEventListener('click', function() {
       var open = body.classList.toggle('open');
@@ -819,17 +1084,24 @@ function buildUI() {
         row.appendChild(num);
       }
 
+      if (ctrl.desc) {
+        var hint = document.createElement('p');
+        hint.className = 'ctrl-hint';
+        hint.textContent = ctrl.desc;
+        row.appendChild(hint);
+      }
+
       body.appendChild(row);
     });
 
     section.appendChild(header);
     section.appendChild(body);
-    panel.insertBefore(section, copyBtn);
+    scroll.insertBefore(section, copyBtn);
   });
 
   // Open first group by default
-  var firstBody    = panel.querySelector('.group-body');
-  var firstChevron = panel.querySelector('.chevron');
+  var firstBody    = scroll.querySelector('.group-body');
+  var firstChevron = scroll.querySelector('.chevron');
   if (firstBody)    firstBody.classList.add('open');
   if (firstChevron) firstChevron.innerHTML = '&#9650;';
 }
@@ -850,6 +1122,7 @@ body { display: flex; font-family: 'Courier New', monospace; font-size: 12px; }
   overflow: hidden;
   min-width: 0;
   padding: 20px;
+  color: #B915CC;
 }
 #svg-view svg { max-height: 90vh; max-width: 100%; }
 
@@ -897,8 +1170,26 @@ body { display: flex; font-family: 'Courier New', monospace; font-size: 12px; }
 .ctrl {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 7px;
+  margin-bottom: 10px;
+}
+.ctrl-hint {
+  width: 100%;
+  font-size: 8px;
+  color: #3a5555;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  padding-left: 2px;
+  margin-top: -2px;
+}
+.group-desc {
+  font-size: 9px;
+  color: #4a6870;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid #00ffee0a;
 }
 .ctrl label {
   width: 110px;
@@ -1006,9 +1297,16 @@ function addPathLengths(content, ids) {
 function convertToCurrentColor(content) {
   // Inkscape stores fills/strokes inside style="fill:…;stroke:…" inline CSS.
   // Replace all non-none fill/stroke values with currentColor.
-  return content
+  // Exception: eye-interior keeps its explicit fill for the Ra glow effect.
+  // Match by id OR inkscape:label in case Inkscape resets the id.
+  const irisBlock = content.match(/<path[^>]*(?:id="eye-interior"|inkscape:label="eye-interior")[^>]*\/?>/);
+  const irisPlaceholder = '____EYE_IRIS_PLACEHOLDER____';
+  if (irisBlock) content = content.replace(irisBlock[0], irisPlaceholder);
+  content = content
     .replace(/\bfill:(?!none\b)([^;}"]+)/g,   'fill:currentColor')
     .replace(/\bstroke:(?!none\b)([^;}"]+)/g, 'stroke:currentColor');
+  if (irisBlock) content = content.replace(irisPlaceholder, irisBlock[0]);
+  return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -1033,13 +1331,14 @@ function injectCSS(content, css) {
 // Main
 // ---------------------------------------------------------------------------
 
-const TRACE_PATH_IDS = [...BELT_PATHS, ...KNOT_PATHS].map(([, id]) => id);
+const TRACE_PATH_IDS = [DRESS_BELT_PATH, OUTLINE_PATH];
 
 const src          = fs.readFileSync('SeshatDetailedPaths.svg', 'utf8');
 const withLengths  = addPathLengths(src, TRACE_PATH_IDS);
 const converted    = convertToCurrentColor(withLengths);
 const css          = generateCSS();
-const output       = injectCSS(converted, css);
+const injected     = injectCSS(converted, css);
+const output       = injected;
 fs.writeFileSync('SeshatAnimation.svg', output);
 
 const panel = generateControlPanel(output);

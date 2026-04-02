@@ -212,6 +212,35 @@ body {
     50%       { opacity: 1;   stroke: #945202; }
 }
 
+/* Seshat Control Panel launch button */
+#seshat-panel-button {
+    color: #B915CC;
+    width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 10px 8px;
+    animation: pulse-purple 4s infinite ease-in-out;
+}
+.scp-icon {
+    width: 54px;
+    height: 54px;
+    flex-shrink: 0;
+}
+.scp-label {
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: currentColor;
+    text-align: center;
+    line-height: 1.5;
+    opacity: 0.75;
+}
+#seshat-panel-button:hover .scp-label {
+    opacity: 1;
+}
+
 /*Cyber Egyptian Vibe Colors
 
 Color         ,HSL Value  ,Hex Equivalent,Feel

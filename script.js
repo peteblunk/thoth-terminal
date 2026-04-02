@@ -35,6 +35,12 @@ inlineSVG('thoth-button', 'code');
 inlineSVG('duamutef-button', 'recycle-bin');
 inlineSVG('seshat-button', 'notepad').then(startSeshatClock);
 
+// ─── Seshat Control Panel ────────────────────────────────────────────────────
+document.getElementById('seshat-panel-button').addEventListener('click', () => {
+    window.open('SeshatControlPanel.html', 'SeshatControlPanel',
+        'width=1100,height=740,left=120,top=60');
+});
+
 // ─── Seshat Chronometer ───────────────────────────────────────────────────────
 // 59 palm-rib bud IDs ordered bud-1 (base = midnight) → bud-58 (top = midnight).
 // bud-41 has two overlapping paths; both are included.
